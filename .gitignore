@@ -1,0 +1,4 @@
+dataset/
+__pycache__/
+ipynb_to_py.py
+dftar.ipynb
