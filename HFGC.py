@@ -13,7 +13,7 @@ class HierarchicalFuzzyGraphColoring:
     ----------
     k : int
     """
-    def __init__(self, k):
+    def __init__(self, k, weights = None):
         """
         Initialize the graph coloring algorithm.
         
@@ -22,8 +22,9 @@ class HierarchicalFuzzyGraphColoring:
         k : int
         """
         self.k = k
+        self.weights = weights
 
-    def _initialize_graph(self, graph):
+    def initialize_graph(self, graph):
         """
         Initialize the graph structure, nodes, and sorted nodes.
         
@@ -34,8 +35,77 @@ class HierarchicalFuzzyGraphColoring:
         self.graph = graph
         self.nodes = list(graph.nodes())
         self.sorted_nodes = sorted(self.nodes, key=lambda n: graph.degree(n), reverse=True)
-        # self.sorted_nodes = sorted(self.nodes, key=lambda n: nx.betweenness_centrality(graph)[n], reverse=True)
+        
+        # compute centralities
+        print("Computing degree centrality...")
+        self.degree_centrality = nx.degree_centrality(graph)
+        print("Computing closeness centrality...")
+        self.closeness_centrality = nx.closeness_centrality(graph, wf_improved=True)
+        print("Computing betweenness centrality...")
+        self.betweenness_centrality = nx.betweenness_centrality(graph, k=int(len(graph) * 0.1), normalized=True, endpoints=False, seed=42)
+        print("Computing eigenvector centrality...")
+        self.eigenvector_centrality = nx.eigenvector_centrality_numpy(graph)
+        
+        self._initialize_masters_and_slaves()
+        self._initialize_labels()
+        
+    def set_weights(self, weights):
+        """
+        Set the weights for the TOPSIS method.
+        
+        Parameters
+        ----------
+        weights : list
+        """
+        self.weights = weights
+        
+    def set_k(self, k):
+        """
+        Set the number of communities.
+        
+        Parameters
+        ----------
+        k : int
+        """
+        self.k = k
+        self._initialize_masters_and_slaves()
+        self._initialize_labels()
 
+    def _compute_topsis_masters(self):
+        """
+        Utilise TOPSIS pour sélectionner les top-k masters basés sur les centralités.
+        
+        :return: Liste des noeuds top-k (masters)
+        """
+        # Construction de la matrice de décision
+        matrix = np.array([
+            [self.degree_centrality[node], self.closeness_centrality[node], 
+             self.betweenness_centrality[node], self.eigenvector_centrality[node]]
+            for node in self.nodes
+        ])
+
+        # Étape 1 : Normalisation
+        normalized_matrix = matrix  / np.sqrt((matrix ** 2).sum(axis=0))
+
+        # Étape 2 : Appliquer les poids
+        weighted_matrix = normalized_matrix * np.array(self.weights)
+
+        # Étape 3 : Solutions idéales et négatives
+        ideal_solution = weighted_matrix.max(axis=0)
+        negative_ideal_solution = weighted_matrix.min(axis=0)
+
+        # Étape 4 : Calcul des distances
+        S_plus = np.sqrt(((weighted_matrix - ideal_solution) ** 2).sum(axis=1))
+        S_minus = np.sqrt(((weighted_matrix - negative_ideal_solution) ** 2).sum(axis=1))
+
+        # Étape 5 : Calcul des scores TOPSIS
+        C = S_minus / (S_plus + S_minus)
+
+        # Étape 6 : Sélectionner les top-k
+        top_k_indices = np.argsort(C)[-self.k:][::-1]
+        top_k_nodes = [self.nodes[i] for i in top_k_indices]
+
+        return top_k_nodes
         
     def _initialize_masters(self, ground_truth):
         """
@@ -53,8 +123,12 @@ class HierarchicalFuzzyGraphColoring:
         """
         Initialize master and slave nodes.
         """
-        self._initialize_masters(ground_truth)
-        self.slaves = self.sorted_nodes[self.k:]
+        if self.weights is None:
+            self._initialize_masters(ground_truth)
+            self.slaves = self.sorted_nodes[self.k:]
+        else:
+            self.masters = self._compute_topsis_masters()
+            self.slaves = [node for node in self.nodes if node not in self.masters]
 
     def _initialize_labels(self):
         """
@@ -96,7 +170,6 @@ class HierarchicalFuzzyGraphColoring:
         updated_labels : dict
         verbose : bool
         """
-        stop = True
         if verbose:
             for node in tqdm.tqdm(colored_nodes, desc="Propagation de couleurs..."):
                 if node in self.masters:
@@ -112,33 +185,12 @@ class HierarchicalFuzzyGraphColoring:
                 total_label = np.sum(neighbor_labels, axis=0)
                 updated_labels[node] = total_label
 
-    def visualize_coloration(self):
-        """
-        Visualize the graph coloration process.
-        """
-        color_map = []
-        for node in self.graph.nodes():
-            if node in self.master_colors:
-                color_map.append(self.master_colors[node])
-            else:
-                node_label = self.labels.get(node, np.zeros(self.k, dtype=int))
-                color = np.argmax(node_label) + 1 if np.any(node_label) else 0
-                color_map.append(color)
-
-        plt.figure(figsize=(8, 6))
-        pos = nx.spring_layout(self.graph)
-        nx.draw(self.graph, pos, with_labels=True, node_color=color_map, cmap=plt.cm.rainbow, node_size=500)
-        plt.show()
-
-    def run(self, graph, return_time=False, verbose=False):
+    def run(self, return_time=False, verbose=False):
         """
         Execute the graph coloring algorithm.
         """
-        self._initialize_graph(graph)
-        self._initialize_masters_and_slaves()
-        self._initialize_labels()
-
         slaves_uncolored = len(self.slaves)
+        
         just_colored_nodes = set(self.masters)
         colored_nodes = set(self.masters)
 
@@ -193,3 +245,21 @@ class HierarchicalFuzzyGraphColoring:
             communities[node] = community
         
         return communities
+    
+    def visualize_coloration(self):
+        """
+        Visualize the graph coloration process.
+        """
+        color_map = []
+        for node in self.graph.nodes():
+            if node in self.master_colors:
+                color_map.append(self.master_colors[node])
+            else:
+                node_label = self.labels.get(node, np.zeros(self.k, dtype=int))
+                color = np.argmax(node_label) + 1 if np.any(node_label) else 0
+                color_map.append(color)
+
+        plt.figure(figsize=(8, 6))
+        pos = nx.spring_layout(self.graph)
+        nx.draw(self.graph, pos, with_labels=True, node_color=color_map, cmap=plt.cm.rainbow, node_size=500)
+        plt.show()

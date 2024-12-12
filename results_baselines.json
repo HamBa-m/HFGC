@@ -1,0 +1,72 @@
+{
+    "athletes_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.6486065646050332,
+            "time": 1.3056159019470215
+        },
+        "fluid_communities": {
+            "modularity": 0.6391281349688329,
+            "time": 3.448632001876831
+        }
+    },
+    "company_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.6037001812387077,
+            "time": 1.7354412078857422
+        },
+        "fluid_communities": {
+            "modularity": 0.6220906042938219,
+            "time": 2.1201648712158203
+        }
+    },
+    "government_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.568488786115585,
+            "time": 0.6537725925445557
+        },
+        "fluid_communities": {
+            "modularity": 0.6807176924014814,
+            "time": 1.9973840713500977
+        }
+    },
+    "new_sites_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.22699624412402306,
+            "time": 3.6636455059051514
+        },
+        "fluid_communities": {
+            "modularity": 0.5383699298269105,
+            "time": 6.73493504524231
+        }
+    },
+    "politician_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.8126028841762882,
+            "time": 0.28494930267333984
+        },
+        "fluid_communities": {
+            "modularity": 0.8039195251799016,
+            "time": 1.0737733840942383
+        }
+    },
+    "public_figure_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.5982289523147651,
+            "time": 0.9586079120635986
+        },
+        "fluid_communities": {
+            "modularity": 0.6115485299558254,
+            "time": 2.40895676612854
+        }
+    },
+    "tvshow_edges.csv": {
+        "label_propagation": {
+            "modularity": 0.8126693664621563,
+            "time": 0.14213991165161133
+        },
+        "fluid_communities": {
+            "modularity": 0.8141942997384721,
+            "time": 0.522010087966919
+        }
+    }
+}
